@@ -1,0 +1,33 @@
+---
+layout: default
+title: Braindump
+---
+<p>Jump in: svn has versioned path/object content and props,
+unversioned rev props. However common practice is to deny modifications
+to any rev prop other that svn:log, so they are almost stable.
+svn:log edits seem to be the most awkward thing to deal with.
+Even svn server managing svn:date isn't that awkward.</p>
+
+<p>It is very likely that each svn remote should get it's own
+git-notes tree to store unversioned or just per-revision info.</p>
+
+<p>The first milestone is still fetching the whole svn repo root.
+And doing a clone and new fetches. <b>git-notes won't be avoided
+anyway, so store all the svn revprops there</b>(it's the real coding here),
+including the revnum.</p>
+
+<p>Then svn data losses are to be recalled. Tracked empty directories,
+unhandled path/file attributes come to mind. Do a quick review
+of a possibility to recreate svn dump stream here.</p>
+
+<p>Adjust the code shape and queue it to the list, and go work on the branches thing.
+<b>What should be the main point of this submission?</b> It'd be fantastic to teach
+git-svn.perl read data from this (or just write a separate conversion tool).
+This way the clone gets faster in terms of network and svn server load.
+And it also becomes ready for common usage and mass testing.
+Another funny thing to do is to run a readonly svn server on top of git data, 
+but this toy looks too time consuming.
+</p>
+
+<p>Side thoughts: is reword/retime/reauthor rebase/history rewrite fast enough now?
+Having it fast is a nice thing, much more options to handle svn metadata.</p>
