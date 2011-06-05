@@ -31,3 +31,20 @@ but this toy looks too time consuming.
 
 <p>Side thoughts: is reword/retime/reauthor rebase/history rewrite fast enough now?
 Having it fast is a nice thing, much more options to handle svn metadata.</p>
+
+<p>Then it's time to dcommit. There are two challenges: to be able to dcommit
+anything that svn client can, <s>and to avoid doing so</s> and to make git user
+experience smooth: rebase or merge origin should be smooth. Not so trivial
+in technical sense is to set path/file props, but it's not too necessary to do.
+</p>
+
+<p><b>Having dcommit working it's possible to queue the next series.</b>
+Because now svn trunk bidirected work becomes possible (with sparse checkout
+if someones wishes).</p>
+
+<p>The story starts looking like artificially narrowed. Previous stuff will need to
+have testcases, separate huge tests, a bit of ui design, a couple of tweaks in case
+of a broad user testing.</p>
+
+<p>Anyway path/branches appear on the scene then.
+</p>
