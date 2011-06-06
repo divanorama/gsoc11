@@ -1,0 +1,21 @@
+---
+layout: default
+title: Bug Zoo
+---
+
+<h2>svn special properties (not reported yet)</h2>
+<p>There are <a href="http://svnbook.red-bean.com/en/1.5/svn.ref.properties.html">some properties</a>
+used by svn itself. svn client has checks for these to be proper, but checks are not complete.</p>
+<p>
+Example:
+{% highlight bash %}
+$ svnadmin create repo
+$ ln -s `which true` repo/hooks/pre-revprop-change
+$ svn co file://`pwd`/repo wd && cd wd
+$ touch 1 && svn add 1 && svn ci -m "Add 1"
+$ svn propset --revprop -r1 svn:eol-style LF
+property 'svn:eol-style' set on repository revision 1
+$ svn propset svn:date tomorrow ./1
+svn: Revision property 'svn:date' not allowed in this context
+{% endhighlight %}
+</p>
