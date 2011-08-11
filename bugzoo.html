@@ -3,6 +3,11 @@ layout: default
 title: Bug Zoo
 ---
 
+<h2>svnadmin dump format is not prefix-free (design flaw, not reported yet)</h2>
+<p>It's not possible to tell whether the last dumped revision is dumped all right or the dump was interrupted
+between node updates.</p>
+
+
 <h2>svnadmin dump --deltas of a compact history can be huge (by design)</h2>
 <p>Roughly the history is like this: create two big files, svn-copy one to another and at the same time
 restore the contents (repeat many times). So the second file stays the same but it's history is always
