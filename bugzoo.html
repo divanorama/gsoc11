@@ -3,6 +3,11 @@ layout: default
 title: Bug Zoo
 ---
 
+<h2>svnadmin dump --deltas of a compact history can be huge (by design)</h2>
+<p>Roughly the history is like this: create two big files, svn-copy one to another and at the same time
+restore the contents (repeat many times). So the second file stays the same but it's history is always
+retargeted to the first one and hence the delta is big each time.</p>
+
 <h2>svn special properties (not reported yet)</h2>
 <p>There are <a href="http://svnbook.red-bean.com/en/1.5/svn.ref.properties.html">some properties</a>
 used by svn itself. svn client has checks for these to be proper, but checks are not complete.</p>
