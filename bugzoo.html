@@ -3,6 +3,11 @@ layout: default
 title: Bug Zoo
 ---
 
+<h2>svnrdump --incremental errors on rFuture:HEAD (neither reported nor patched yet)</h2>
+<p>If we only interact with the repository via svnrdump, we can't know if there are new revisions in the repo.
+So we ask for -r{last_fetched+1}:HEAD, svnrdump <u>asks</u> for last_changed rev and errors out if it's last_fetched
+or less. It should be possible to make it accept such range and produce empty dump.</p>
+
 <h2>svnadmin dump format is not prefix-free (design flaw, not reported yet)</h2>
 <p>It's not possible to tell whether the last dumped revision is dumped all right or the dump was interrupted
 between node updates.</p>
