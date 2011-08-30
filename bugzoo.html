@@ -3,6 +3,9 @@ layout: default
 title: Bug Zoo
 ---
 
+<h2>svndumpfilter doesn't understand --deltas dump (<a href="http://subversion.tigris.org/issues/show_bug.cgi?id=2760">upstream bug</a>)</h2>
+<p>That is 'SVN-fs-dump-format-version: 3' isn't supported by svndumpfilter. </p>
+
 <h2>svnrdump --incremental errors on rFuture:HEAD (neither reported nor patched yet)</h2>
 <p>If we only interact with the repository via svnrdump, we can't know if there are new revisions in the repo.
 So we ask for -r{last_fetched+1}:HEAD, svnrdump <u>asks</u> for last_changed rev and errors out if it's last_fetched
