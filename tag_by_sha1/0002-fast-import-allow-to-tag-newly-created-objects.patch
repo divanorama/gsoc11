@@ -1,0 +1,95 @@
+From 6c447f633cedd6e2366151b0b82b1731f8c1ee1d Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Mon, 22 Aug 2011 18:10:19 +0600
+Subject: [PATCH 2/2] fast-import: allow to tag newly created objects
+
+fast-import allows to tag objects by sha1 and to query sha1 of objects
+being imported. So it should allow to tag these objects, make it do so.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ fast-import.c          |   10 +++++++---
+ t/t9300-fast-import.sh |   26 ++++++++++++++++++++++++++
+ 2 files changed, 33 insertions(+), 3 deletions(-)
+
+diff --git a/fast-import.c b/fast-import.c
+index ca21458..4f56f77 100644
+--- a/fast-import.c
++++ b/fast-import.c
+@@ -2688,9 +2688,13 @@ static void parse_new_tag(void)
+ 		type = oe->type;
+ 		hashcpy(sha1, oe->idx.sha1);
+ 	} else if (!get_sha1(from, sha1)) {
+-		type = sha1_object_info(sha1, NULL);
+-		if (type < 0)
+-			die("Not a valid object: %s", from);
++		struct object_entry *oe = find_object(sha1);
++		if (!oe) {
++			type = sha1_object_info(sha1, NULL);
++			if (type < 0)
++				die("Not a valid object: %s", from);
++		} else
++			type = oe->type;
+ 	} else
+ 		die("Invalid ref name or SHA1 expression: %s", from);
+ 	read_next_command();
+diff --git a/t/t9300-fast-import.sh b/t/t9300-fast-import.sh
+index 80b06f0..ab94934 100755
+--- a/t/t9300-fast-import.sh
++++ b/t/t9300-fast-import.sh
+@@ -188,12 +188,32 @@ test_expect_success \
+ 	test_cmp expect marks.new'
+ 
+ test_tick
++new_blob=$(echo testing | git hash-object --stdin)
+ cat >input <<INPUT_END
+ tag series-A-blob-2
+ from $(git rev-parse refs/heads/master:file3)
+ data <<EOF
+ Tag blob by sha1.
+ EOF
++
++blob
++mark :6
++data <<EOF
++testing
++EOF
++
++commit refs/heads/new_blob
++committer  <> 0 +0000
++data 0
++M 644 :6 new_blob
++#pretend we got sha1 from fast-import
++ls "new_blob"
++
++tag series-A-blob-3
++from $new_blob
++data <<EOF
++Tag new_blob.
++EOF
+ INPUT_END
+ 
+ cat >expect <<EOF
+@@ -202,12 +222,18 @@ type blob
+ tag series-A-blob-2
+ 
+ Tag blob by sha1.
++object $new_blob
++type blob
++tag series-A-blob-3
++
++Tag new_blob.
+ EOF
+ 
+ test_expect_success \
+ 	'A: tag blob by sha1' \
+ 	'git fast-import <input &&
+ 	git cat-file tag tags/series-A-blob-2 >actual &&
++	git cat-file tag tags/series-A-blob-3 >>actual &&
+ 	test_cmp expect actual'
+ 
+ test_tick
+-- 
+1.7.3.4
+

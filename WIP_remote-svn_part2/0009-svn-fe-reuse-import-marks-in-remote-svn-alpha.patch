@@ -1,0 +1,75 @@
+From 7a83b257bd8c48245c94f7db634be261c8efe98f Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Wed, 13 Jul 2011 17:11:34 +0600
+Subject: [PATCH 9/9] svn-fe: reuse import-marks in remote-svn-alpha
+
+remote-svn-alpha needs to prepare import marks file when doing an
+incremental import. This file can be left after previous imports.
+
+Take the last imported commit and a note with corresponding svn
+revision number. If the marks file exists and defines a :revision
+mark pointing to the last imported commit, consider it valid.
+It may accidentally contain newer revisions, they are silently
+ignored. In practice the check for :revision last_commit should
+be sufficient to rely on this file defining any lesser revision
+marks needed correctly.
+
+So if the import marks file looks valid, do not regenerate it from
+the notes tree and have save some performance saved.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+---
+ contrib/svn-fe/git-remote-svn-alpha |   26 ++++++++++++++++++++++----
+ 1 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/contrib/svn-fe/git-remote-svn-alpha b/contrib/svn-fe/git-remote-svn-alpha
+index f4e737d..8096ef2 100755
+--- a/contrib/svn-fe/git-remote-svn-alpha
++++ b/contrib/svn-fe/git-remote-svn-alpha
+@@ -78,14 +78,31 @@ do_gen_marks () {
+ prepare_marks () {
+ 	dst=$1 notes=$2 rev=$3
+ 	test "z$git_dir" != "$z" || die "we were not told the gitdir"
+-	mkdir -p "$git_dir/$marks_dir"
+-	if test ! -f "$git_dir/$marks_dir/marks"; then
+-		touch "$git_dir/$marks_dir/marks"
++	path="$git_dir/$marks_dir"
++	mkdir -p "$path"
++	path="$path/marks"
++
++	if test ! -f "$path"; then
++		touch "$path"
+ 	fi
+ 	if test "$rev" = "-1"; then
+ 		return 0
+ 	fi
+-	do_gen_marks "$notes" >"$git_dir/$marks_dir/marks"
++	mark_sha=""
++	{
++		while read -r m sha
++		do
++			if test "$m" = ":$rev"; then
++				mark_sha="$sha"
++			fi
++		done
++	} <"$path"
++	dst_sha=$( git rev-parse "$dst" )
++	if test -n "$mark_sha"; then
++		test "$mark_sha" = "$dst_sha" || die "latest mark and note diverge"
++	else
++		do_gen_marks "$notes" >"$path"
++	fi
+ }
+ 
+ last_imported_rev () {
+@@ -110,6 +127,7 @@ do_import () {
+ 	revs="$start_rev:HEAD"
+ 	prepare_marks $dst $notes $rev
+ 	echo "feature import-marks=$git_dir/$marks_dir/marks"
++	echo "feature export-marks=$git_dir/$marks_dir/marks"
+ 	(eval "$SVNDUMP \"$url\" -r\"$revs\"" |	svn-fe --ref="$dst" --notes-ref="$notes" --incremental --no-progress) 3<&0 || die "FAILURE"
+ 	exec 1>&-
+ }
+-- 
+1.7.3.4
+

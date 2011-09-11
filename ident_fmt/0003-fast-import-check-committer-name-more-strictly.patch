@@ -1,0 +1,156 @@
+From 4b4963c0e1aa094900951df9e66459443111ccc9 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Thu, 11 Aug 2011 16:21:08 +0600
+Subject: [PATCH 3/5] fast-import: check committer name more strictly
+
+The documentation declares following identity format:
+(<name> SP)? LT <email> GT
+where name is any string without LF and LT characters.
+But fast-import just accepts any string up to first GT
+instead of checking the whole format, and moreover just
+writes it as is to the commit object.
+
+git-fsck checks for [^<\n]* <[^<>\n]*> format. Note that the
+space is mandatory. And the space quirk is already handled via
+extending the string to the left when needed.
+
+Modify fast-import input identity format to a slightly stricter
+one - deny LF, LT and GT in both <name> and <email>. And check
+for it.
+
+This is stricter then git-fsck as fsck accepts "Name> <email>"
+currently, but soon fsck check will be adjusted likewise.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ Documentation/git-fast-import.txt |    4 ++--
+ fast-import.c                     |   29 +++++++++++++++++------------
+ t/t9300-fast-import.sh            |   10 +++++-----
+ 3 files changed, 24 insertions(+), 19 deletions(-)
+
+diff --git a/Documentation/git-fast-import.txt b/Documentation/git-fast-import.txt
+index 3f5b912..0ca24a8 100644
+--- a/Documentation/git-fast-import.txt
++++ b/Documentation/git-fast-import.txt
+@@ -413,8 +413,8 @@ Here `<name>` is the person's display name (for example
+ (``cm@example.com'').  `LT` and `GT` are the literal less-than (\x3c)
+ and greater-than (\x3e) symbols.  These are required to delimit
+ the email address from the other fields in the line.  Note that
+-`<name>` is free-form and may contain any sequence of bytes, except
+-`LT` and `LF`.  It is typically UTF-8 encoded.
++`<name>` and `<email>` are free-form and may contain any sequence
++of bytes, except `LT`, `GT` and `LF`.  `<name>` is typically UTF-8 encoded.
+ 
+ The time of the change is specified by `<when>` using the date format
+ that was selected by the \--date-format=<fmt> command line option.
+diff --git a/fast-import.c b/fast-import.c
+index c07f155..967d70c 100644
+--- a/fast-import.c
++++ b/fast-import.c
+@@ -1967,7 +1967,7 @@ static int validate_raw_date(const char *src, char *result, int maxlen)
+ 
+ static char *parse_ident(const char *buf)
+ {
+-	const char *gt;
++	const char *ltgt;
+ 	size_t name_len;
+ 	char *ident;
+ 
+@@ -1975,28 +1975,33 @@ static char *parse_ident(const char *buf)
+ 	if (*buf == '<')
+ 		--buf;
+ 
+-	gt = strrchr(buf, '>');
+-	if (!gt)
++	ltgt = buf + strcspn(buf, "<>");
++	if (*ltgt != '<')
++		die("Missing < in ident string: %s", buf);
++	if (ltgt != buf && ltgt[-1] != ' ')
++		die("Missing space before < in ident string: %s", buf);
++	ltgt = ltgt + 1 + strcspn(ltgt + 1, "<>");
++	if (*ltgt != '>')
+ 		die("Missing > in ident string: %s", buf);
+-	gt++;
+-	if (*gt != ' ')
++	ltgt++;
++	if (*ltgt != ' ')
+ 		die("Missing space after > in ident string: %s", buf);
+-	gt++;
+-	name_len = gt - buf;
++	ltgt++;
++	name_len = ltgt - buf;
+ 	ident = xmalloc(name_len + 24);
+ 	strncpy(ident, buf, name_len);
+ 
+ 	switch (whenspec) {
+ 	case WHENSPEC_RAW:
+-		if (validate_raw_date(gt, ident + name_len, 24) < 0)
+-			die("Invalid raw date \"%s\" in ident: %s", gt, buf);
++		if (validate_raw_date(ltgt, ident + name_len, 24) < 0)
++			die("Invalid raw date \"%s\" in ident: %s", ltgt, buf);
+ 		break;
+ 	case WHENSPEC_RFC2822:
+-		if (parse_date(gt, ident + name_len, 24) < 0)
+-			die("Invalid rfc2822 date \"%s\" in ident: %s", gt, buf);
++		if (parse_date(ltgt, ident + name_len, 24) < 0)
++			die("Invalid rfc2822 date \"%s\" in ident: %s", ltgt, buf);
+ 		break;
+ 	case WHENSPEC_NOW:
+-		if (strcmp("now", gt))
++		if (strcmp("now", ltgt))
+ 			die("Date in ident must be 'now': %s", buf);
+ 		datestamp(ident + name_len, 24);
+ 		break;
+diff --git a/t/t9300-fast-import.sh b/t/t9300-fast-import.sh
+index 09ef6ba..18441f8 100755
+--- a/t/t9300-fast-import.sh
++++ b/t/t9300-fast-import.sh
+@@ -370,7 +370,7 @@ data <<COMMIT
+ empty commit
+ COMMIT
+ INPUT_END
+-test_expect_failure 'B: fail on invalid committer (1)' '
++test_expect_success 'B: fail on invalid committer (1)' '
+ 	test_must_fail git fast-import <input
+ '
+ git update-ref -d refs/heads/invalid-committer || true
+@@ -382,7 +382,7 @@ data <<COMMIT
+ empty commit
+ COMMIT
+ INPUT_END
+-test_expect_failure 'B: fail on invalid committer (2)' '
++test_expect_success 'B: fail on invalid committer (2)' '
+ 	test_must_fail git fast-import <input
+ '
+ git update-ref -d refs/heads/invalid-committer || true
+@@ -394,7 +394,7 @@ data <<COMMIT
+ empty commit
+ COMMIT
+ INPUT_END
+-test_expect_failure 'B: fail on invalid committer (3)' '
++test_expect_success 'B: fail on invalid committer (3)' '
+ 	test_must_fail git fast-import <input
+ '
+ git update-ref -d refs/heads/invalid-committer || true
+@@ -406,7 +406,7 @@ data <<COMMIT
+ empty commit
+ COMMIT
+ INPUT_END
+-test_expect_failure 'B: fail on invalid committer (4)' '
++test_expect_success 'B: fail on invalid committer (4)' '
+ 	test_must_fail git fast-import <input
+ '
+ git update-ref -d refs/heads/invalid-committer || true
+@@ -418,7 +418,7 @@ data <<COMMIT
+ empty commit
+ COMMIT
+ INPUT_END
+-test_expect_failure 'B: fail on invalid committer (5)' '
++test_expect_success 'B: fail on invalid committer (5)' '
+ 	test_must_fail git fast-import <input
+ '
+ git update-ref -d refs/heads/invalid-committer || true
+-- 
+1.7.3.4
+

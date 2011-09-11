@@ -1,0 +1,74 @@
+From 635ca62f5f74ef881bde72a634954b703e01960e Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Tue, 16 Aug 2011 15:08:58 +0600
+Subject: [PATCH 11/11] vcs-svn: add fast_export_note to create notes
+
+fast_export lacked a method to writes notes to fast-import stream.
+Add two new functions fast_export_note which is similar to
+fast_export_modify. And also add fast_export_buf_to_data to be able
+to write inline blobs that don't come from a line_buffer or from delta
+application.
+
+To be used like this:
+fast_export_begin_commit("refs/notes/somenotes", ...)
+
+fast_export_note("refs/heads/master", "inline")
+fast_export_buf_to_data(&data)
+or maybe
+fast_export_note("refs/heads/master", sha1)
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+---
+ vcs-svn/fast_export.c |   11 +++++++++++
+ vcs-svn/fast_export.h |    2 ++
+ 2 files changed, 13 insertions(+), 0 deletions(-)
+
+diff --git a/vcs-svn/fast_export.c b/vcs-svn/fast_export.c
+index 3dfccd2..07220b0 100644
+--- a/vcs-svn/fast_export.c
++++ b/vcs-svn/fast_export.c
+@@ -69,6 +69,10 @@ void fast_export_modify(const char *path, uint32_t mode, const char *dataref)
+ 	putchar('\n');
+ }
+ 
++void fast_export_note(const char *committish, const char *dataref) {
++	printf("N %s %s\n", dataref, committish);
++}
++
+ void fast_export_begin_commit(const char *ref, uint32_t mark, const char *from,
+ 			const char *author_name, const char *author_email,
+ 			const struct strbuf *log, unsigned long timestamp)
+@@ -206,6 +210,13 @@ static long apply_delta(off_t len, struct line_buffer *input,
+ 	return ret;
+ }
+ 
++void fast_export_buf_to_data(const struct strbuf *data)
++{
++	printf("data %"PRIuMAX"\n", (uintmax_t)data->len);
++	fwrite(data->buf, data->len, 1, stdout);
++	fputc('\n', stdout);
++}
++
+ void fast_export_data(uint32_t mode, uint32_t len, struct line_buffer *input)
+ {
+ 	if (mode == REPO_MODE_LNK) {
+diff --git a/vcs-svn/fast_export.h b/vcs-svn/fast_export.h
+index bf58880..d17e5d3 100644
+--- a/vcs-svn/fast_export.h
++++ b/vcs-svn/fast_export.h
+@@ -10,10 +10,12 @@ void fast_export_reset(void);
+ 
+ void fast_export_delete(const char *path);
+ void fast_export_modify(const char *path, uint32_t mode, const char *dataref);
++void fast_export_note(const char *committish, const char *dataref);
+ void fast_export_begin_commit(const char *ref, uint32_t mark, const char *from,
+ 			const char *author_name, const char *author_email,
+ 			const struct strbuf *log, unsigned long timestamp);
+ void fast_export_progress(uint32_t revision);
++void fast_export_buf_to_data(const struct strbuf *data);
+ void fast_export_data(uint32_t mode, uint32_t len, struct line_buffer *input);
+ void fast_export_blob_delta(uint32_t mode,
+ 			uint32_t old_mode, const char *old_data,
+-- 
+1.7.3.4
+

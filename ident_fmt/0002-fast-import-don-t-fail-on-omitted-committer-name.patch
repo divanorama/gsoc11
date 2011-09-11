@@ -1,0 +1,57 @@
+From 17fb00721b854b1c469e44ad709a9cad2128f11d Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Thu, 11 Aug 2011 16:21:07 +0600
+Subject: [PATCH 2/5] fast-import: don't fail on omitted committer name
+
+fast-import format declares 'committer_name SP' to be optional in
+'committer_name SP LT email GT'. But for a (commit) object SP is
+obligatory while zero length committer_name is ok. git-fsck checks
+that SP is present, so fast-import must prepend it if the name SP
+part is omitted. It doesn't do so and thus for "LT email GT" ident
+it writes a bad object.
+
+Name cannot contain LT or GT, ident always comes after SP in fast-import.
+So if ident starts with LT reuse the SP as if a valid 'SP LT email GT'
+ident was passed.
+
+This fixes a ident parsing bug for a well-formed fast-import input.
+Though the parsing is still loose and can accept a ill-formed input.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ fast-import.c          |    4 ++++
+ t/t9300-fast-import.sh |    2 +-
+ 2 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/fast-import.c b/fast-import.c
+index 78d9786..c07f155 100644
+--- a/fast-import.c
++++ b/fast-import.c
+@@ -1971,6 +1971,10 @@ static char *parse_ident(const char *buf)
+ 	size_t name_len;
+ 	char *ident;
+ 
++	/* ensure there is a space delimiter even if there is no name */
++	if (*buf == '<')
++		--buf;
++
+ 	gt = strrchr(buf, '>');
+ 	if (!gt)
+ 		die("Missing > in ident string: %s", buf);
+diff --git a/t/t9300-fast-import.sh b/t/t9300-fast-import.sh
+index a659dd4..09ef6ba 100755
+--- a/t/t9300-fast-import.sh
++++ b/t/t9300-fast-import.sh
+@@ -352,7 +352,7 @@ data <<COMMIT
+ empty commit
+ COMMIT
+ INPUT_END
+-test_expect_failure 'B: accept and fixup committer with no name' '
++test_expect_success 'B: accept and fixup committer with no name' '
+ 	git fast-import <input &&
+ 	out=$(git fsck) &&
+ 	echo "$out" &&
+-- 
+1.7.3.4
+

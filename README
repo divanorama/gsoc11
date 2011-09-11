@@ -1,0 +1,33 @@
+Here are the code samples for GSoC'11
+
+They come in a form of patch series. Most of
+the patches were not created by just me alone,
+the credits should also go to the mentors and
+to the authors specified in patches. All created
+before the pencils down at 22 Aug 2011.
+
+JRN_* patches are picked up by Jonathan Nieder
+and included in svn-fe* branches at
+git://repo.or.cz/git/jrn.git
+
+WIP_* patches aren't in any upstream yet
+
+All others have reached git master branch.
+
+
+Another view to the work and to the discussions
+is github pages for the project
+http://divanorama.github.com/gsoc11/streams.html
+It has updates after the pencils down, so there
+is also a tag 'gh-pages_22aug', snapshot of which
+is in ./_site (don't see how to have this state
+published at github pages without creating a new
+placeholder project).
+
+The abovementioned page refers to git branches that
+I used to track patch series, they are available at
+git://github.com/divanorama/git.git
+
+
+This archive both packed and unpacked is also stored
+in github project http://github.com/divanorama/gsoc11

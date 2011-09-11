@@ -1,0 +1,85 @@
+From 53f53cff24c5fe6683234bcd5386a447b8b17074 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Thu, 11 Aug 2011 16:21:10 +0600
+Subject: [PATCH 5/5] fsck: improve committer/author check
+
+fsck allows a name with > character in it like "name> <email>". Also for
+"name email>" fsck says "missing space before email".
+
+More precisely, it seeks for a first '<', checks that ' ' preceeds it.
+Then seeks to '<' or '>' and checks that it is the '>'. Missing space is
+reported if either '<' is not found or it's not preceeded with ' '.
+
+Change it to following. Seek to '<' or '>', check that it is '<' and is
+preceeded with ' '. Seek to '<' or '>' and check that it is '>'. So now
+"name> <email>" is rejected as "bad name". More strict name check is the
+only change in what is accepted.
+
+Report 'missing space' only if '<' is found and is not preceeded with a
+space.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ fsck.c          |   10 ++++++----
+ t/t1450-fsck.sh |    6 +++---
+ 2 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/fsck.c b/fsck.c
+index 60bd4bb..6c855f8 100644
+--- a/fsck.c
++++ b/fsck.c
+@@ -224,13 +224,15 @@ static int fsck_tree(struct tree *item, int strict, fsck_error error_func)
+ 
+ static int fsck_ident(char **ident, struct object *obj, fsck_error error_func)
+ {
+-	if (**ident == '<' || **ident == '\n')
+-		return error_func(obj, FSCK_ERROR, "invalid author/committer line - missing space before email");
+-	*ident += strcspn(*ident, "<\n");
+-	if ((*ident)[-1] != ' ')
++	if (**ident == '<')
+ 		return error_func(obj, FSCK_ERROR, "invalid author/committer line - missing space before email");
++	*ident += strcspn(*ident, "<>\n");
++	if (**ident == '>')
++		return error_func(obj, FSCK_ERROR, "invalid author/committer line - bad name");
+ 	if (**ident != '<')
+ 		return error_func(obj, FSCK_ERROR, "invalid author/committer line - missing email");
++	if ((*ident)[-1] != ' ')
++		return error_func(obj, FSCK_ERROR, "invalid author/committer line - missing space before email");
+ 	(*ident)++;
+ 	*ident += strcspn(*ident, "<>\n");
+ 	if (**ident != '>')
+diff --git a/t/t1450-fsck.sh b/t/t1450-fsck.sh
+index 01ccefd..523ce9c 100755
+--- a/t/t1450-fsck.sh
++++ b/t/t1450-fsck.sh
+@@ -110,7 +110,7 @@ test_expect_success 'email with embedded > is not okay' '
+ 	grep "error in commit $new" out
+ '
+ 
+-test_expect_failure 'missing < email delimiter is reported nicely' '
++test_expect_success 'missing < email delimiter is reported nicely' '
+ 	git cat-file commit HEAD >basis &&
+ 	sed "s/<//" basis >bad-email-2 &&
+ 	new=$(git hash-object -t commit -w --stdin <bad-email-2) &&
+@@ -122,7 +122,7 @@ test_expect_failure 'missing < email delimiter is reported nicely' '
+ 	grep "error in commit $new.* - bad name" out
+ '
+ 
+-test_expect_failure 'missing email is reported nicely' '
++test_expect_success 'missing email is reported nicely' '
+ 	git cat-file commit HEAD >basis &&
+ 	sed "s/[a-z]* <[^>]*>//" basis >bad-email-3 &&
+ 	new=$(git hash-object -t commit -w --stdin <bad-email-3) &&
+@@ -134,7 +134,7 @@ test_expect_failure 'missing email is reported nicely' '
+ 	grep "error in commit $new.* - missing email" out
+ '
+ 
+-test_expect_failure '> in name is reported' '
++test_expect_success '> in name is reported' '
+ 	git cat-file commit HEAD >basis &&
+ 	sed "s/ </> </" basis >bad-email-4 &&
+ 	new=$(git hash-object -t commit -w --stdin <bad-email-4) &&
+-- 
+1.7.3.4
+

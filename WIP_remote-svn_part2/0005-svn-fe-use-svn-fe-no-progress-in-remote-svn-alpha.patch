@@ -1,0 +1,32 @@
+From d588be8d30cea5f2bb8400944afd07e3fb59bc4c Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Mon, 4 Jul 2011 19:59:04 +0600
+Subject: [PATCH 5/9] svn-fe: use svn-fe --no-progress in remote-svn-alpha
+
+svn-fe by default  produces a progress line for each imported revision.
+For large repos it stresses the terminal and a user, possibly scrolls
+away error messages.
+
+Just disable progress lines for now.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+---
+ contrib/svn-fe/git-remote-svn-alpha |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/contrib/svn-fe/git-remote-svn-alpha b/contrib/svn-fe/git-remote-svn-alpha
+index ca9d431..ed8da7b 100755
+--- a/contrib/svn-fe/git-remote-svn-alpha
++++ b/contrib/svn-fe/git-remote-svn-alpha
+@@ -59,7 +59,7 @@ test -n "$SVNDUMP" || die "neither svnrdump nor svnadmin & svnlook was found"
+ 
+ do_import () {
+ 	revs=$1 url=$2
+-	(eval "$SVNDUMP \"$url\" -r\"$revs\"" |	svn-fe) 3<&0 || die "FAILURE"
++	(eval "$SVNDUMP \"$url\" -r\"$revs\"" |	svn-fe --no-progress) 3<&0 || die "FAILURE"
+ 	exec 1>&-
+ }
+ 
+-- 
+1.7.3.4
+

@@ -1,0 +1,46 @@
+From e67bee54053d557c1cc6d8466b75f2b1c5a81088 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Tue, 21 Jun 2011 20:52:34 +0600
+Subject: [PATCH 1/4] Arrange a backflow pipe from fast-importer to remote helper stdin
+
+Remote helpers may issue "ls " or "cat-blob " requests to the
+fast-import. Upcoming svn-fe uses this capability.
+The response should be fed back to remote helper,  let it go
+to helper's stdin/command stream. For this to work commands
+should be sent carefully to avoid mix with importer responses.
+
+Currently helper should read up all "import" lines along with
+terminating blank line. This line is from disconnect_helper
+and is not mentioned in docs though.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+---
+ transport-helper.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
+
+diff --git a/transport-helper.c b/transport-helper.c
+index 660147f..2ad3010 100644
+--- a/transport-helper.c
++++ b/transport-helper.c
+@@ -349,12 +349,16 @@ static int fetch_with_fetch(struct transport *transport,
+ 
+ static int get_importer(struct transport *transport, struct child_process *fastimport)
+ {
++	char buf[32];
++	struct helper_data *data = transport->data;
+ 	struct child_process *helper = get_helper(transport);
+ 	memset(fastimport, 0, sizeof(*fastimport));
+ 	fastimport->in = helper->out;
+-	fastimport->argv = xcalloc(5, sizeof(*fastimport->argv));
++	fastimport->argv = xcalloc(6, sizeof(*fastimport->argv));
+ 	fastimport->argv[0] = "fast-import";
+ 	fastimport->argv[1] = "--quiet";
++	snprintf(buf, 32, "--cat-blob-fd=%d", data->helper->in);
++	fastimport->argv[2] = buf;
+ 
+ 	fastimport->git_cmd = 1;
+ 	return start_command(fastimport);
+-- 
+1.7.3.4
+

@@ -1,0 +1,58 @@
+From b421812b487da44b01773ef38789db1122bec61a Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Wed, 13 Jul 2011 23:10:53 +0600
+Subject: [PATCH] doc/fast-import: clarify notemodify command
+
+The "notemodify" fast-import command was introduced in commit a8dd2e7
+(fast-import: Add support for importing commit notes, 2009-10-09)
+The commit log has slightly different description than the added
+documentation. The latter is somewhat confusing. "notemodify" is a
+subcommand of "commit" command used to add a note for some commit.
+Does this note annotate the commit produced by the "commit" command
+or a commit given by it's committish parameter? Which notes tree
+does it write notes to?
+
+The exact meaning could be deduced with old description and some
+notes machinery knowledge. But let's make it more obvious. This
+command is used in a context like "commit refs/notes/test" to
+add or rewrite an annotation for a committish parameter. So the
+advised way to add notes in a fast-import stream is:
+1) import some commits (optional)
+2) prepare a "commit" to the notes tree:
+2.1) choose notes ref, committer, log message, etc.
+2.2) create annotations with "notemodify", where each can refer to
+a commit being annotated via a branch name, import mark reference,
+sha1 and other expressions specified in the Documentation.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Acked-by: Jonathan Nieder <jrnieder@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ Documentation/git-fast-import.txt |   11 ++++++++---
+ 1 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/git-fast-import.txt b/Documentation/git-fast-import.txt
+index 249249a..3f5b912 100644
+--- a/Documentation/git-fast-import.txt
++++ b/Documentation/git-fast-import.txt
+@@ -648,9 +648,14 @@ paths for a commit are encouraged to do so.
+ 
+ `notemodify`
+ ^^^^^^^^^^^^
+-Included in a `commit` command to add a new note (annotating a given
+-commit) or change the content of an existing note.  This command has
+-two different means of specifying the content of the note.
++Included in a `commit` `<notes_ref>` command to add a new note
++annotating a `<committish>` or change this annotation contents.
++Internally it is similar to filemodify 100644 on `<committish>`
++path (maybe split into subdirectories). It's not advised to
++use any other commands to write to the `<notes_ref>` tree except
++`filedeleteall` to delete all existing notes in this tree.
++This command has two different means of specifying the content
++of the note.
+ 
+ External data format::
+ 	The data content for the note was already supplied by a prior
+-- 
+1.7.3.4
+

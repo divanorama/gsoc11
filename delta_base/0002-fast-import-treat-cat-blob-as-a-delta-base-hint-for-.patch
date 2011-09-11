@@ -1,0 +1,64 @@
+From a7e9c34126ce7608bbc971b09b80540d0112091c Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Sun, 21 Aug 2011 01:04:12 +0600
+Subject: [PATCH 2/2] fast-import: treat cat-blob as a delta base hint for next blob
+
+Delta base for blobs is chosen as a previously saved blob. If we
+treat cat-blob's blob as a delta base for the next blob, nothing
+is likely to become worse.
+
+For fast-import stream producer like svn-fe cat-blob is used like
+following:
+- svn-fe reads file delta in svn format
+- to apply it, svn-fe asks cat-blob 'svn delta base'
+- applies 'svn delta' to the response
+- produces a blob command to store the result
+
+Currently there is no way for svn-fe to give fast-import a hint on
+object delta base. While what's requested in cat-blob is most of
+the time a best delta base possible. Of course, it could be not a
+good delta base, but we don't know any better one anyway.
+
+So do treat cat-blob's result as a delta base for next blob. The
+profit is nice: 2x to 7x reduction in pack size AND 1.2x to 3x
+time speedup due to diff_delta being faster on good deltas. git gc
+--aggressive can compress it even more, by 10% to 70%, utilizing
+more cpu time, real time and 3 cpu cores.
+
+Tested on 213M and 2.7G fast-import streams, resulting packs are 22M
+and 113M, import time is 7s and 60s, both streams are produced by
+svn-fe, sniffed and then used as raw input for fast-import.
+
+For git-fast-export produced streams there is no change as it doesn't
+use cat-blob and doesn't try to reorder blobs in some smart way to
+make successive deltas small.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Acked-by: David Barr <davidbarr@google.com>
+Acked-by: Jonathan Nieder <jrnieder@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ fast-import.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletions(-)
+
+diff --git a/fast-import.c b/fast-import.c
+index c6c8cc3..97b31c9 100644
+--- a/fast-import.c
++++ b/fast-import.c
+@@ -2800,7 +2800,12 @@ static void cat_blob(struct object_entry *oe, unsigned char sha1[20])
+ 	strbuf_release(&line);
+ 	cat_blob_write(buf, size);
+ 	cat_blob_write("\n", 1);
+-	free(buf);
++	if (oe && oe->pack_id == pack_id) {
++		last_blob.offset = oe->idx.offset;
++		strbuf_attach(&last_blob.data, buf, size, size);
++		last_blob.depth = oe->depth;
++	} else
++		free(buf);
+ }
+ 
+ static void parse_cat_blob(void)
+-- 
+1.7.3.4
+

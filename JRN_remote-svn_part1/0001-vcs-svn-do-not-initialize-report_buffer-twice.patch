@@ -1,0 +1,61 @@
+From c5f1fbe7bc6b29f3343a168461ee70816ddebec2 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Mon, 20 Jun 2011 14:22:47 +0600
+Subject: [PATCH] vcs-svn: do not initialize report_buffer twice
+
+When importing from a dump with deltas, first fast_export_init calls
+buffer_fdinit, and then init_report_buffer calls fdopen once again
+when processing the first delta.  The second initialization is
+redundant and leaks a FILE *.
+
+Remove the redundant on-demand initialization to fix this.
+Initializing directly in fast_export_init is simpler and lets the
+caller pass an int specifying which fd to use instead of hard-coding
+REPORT_FILENO.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+---
+ vcs-svn/fast_export.c |   12 ------------
+ 1 files changed, 0 insertions(+), 12 deletions(-)
+
+diff --git a/vcs-svn/fast_export.c b/vcs-svn/fast_export.c
+index 97f5fdf..3efde20 100644
+--- a/vcs-svn/fast_export.c
++++ b/vcs-svn/fast_export.c
+@@ -14,7 +14,6 @@
+ #include "line_buffer.h"
+ 
+ #define MAX_GITSVN_LINE_LEN 4096
+-#define REPORT_FILENO 3
+ 
+ static uint32_t first_commit_done;
+ static struct line_buffer postimage = LINE_BUFFER_INIT;
+@@ -30,15 +29,6 @@ static int init_postimage(void)
+ 	return buffer_tmpfile_init(&postimage);
+ }
+ 
+-static int init_report_buffer(int fd)
+-{
+-	static int report_buffer_initialized;
+-	if (report_buffer_initialized)
+-		return 0;
+-	report_buffer_initialized = 1;
+-	return buffer_fdinit(&report_buffer, fd);
+-}
+-
+ void fast_export_init(int fd)
+ {
+ 	if (buffer_fdinit(&report_buffer, fd))
+@@ -203,8 +193,6 @@ static long apply_delta(off_t len, struct line_buffer *input,
+ 
+ 	if (init_postimage() || !(out = buffer_tmpfile_rewind(&postimage)))
+ 		die("cannot open temporary file for blob retrieval");
+-	if (init_report_buffer(REPORT_FILENO))
+-		die("cannot open fd 3 for feedback from fast-import");
+ 	if (old_data) {
+ 		const char *response;
+ 		printf("cat-blob %s\n", old_data);
+-- 
+1.7.3.4
+

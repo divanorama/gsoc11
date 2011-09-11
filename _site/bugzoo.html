@@ -1,0 +1,56 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <link rel="stylesheet" href="/gsoc11/css/syntax.css" type="text/css" />
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>GSoC'11 Bug Zoo</title>
+</head>
+<body>
+   <h1> Bug Zoo </h1>
+
+   <h2>svnrdump --incremental errors on rFuture:HEAD (neither reported nor patched yet)</h2>
+<p>If we only interact with the repository via svnrdump, we can't know if there are new revisions in the repo.
+So we ask for -r{last_fetched+1}:HEAD, svnrdump <u>asks</u> for last_changed rev and errors out if it's last_fetched
+or less. It should be possible to make it accept such range and produce empty dump.</p>
+
+<h2>svnadmin dump format is not prefix-free (design flaw, not reported yet)</h2>
+<p>It's not possible to tell whether the last dumped revision is dumped all right or the dump was interrupted
+between node updates.</p>
+
+
+<h2>svnadmin dump --deltas of a compact history can be huge (by design)</h2>
+<p>Roughly the history is like this: create two big files, svn-copy one to another and at the same time
+restore the contents (repeat many times). So the second file stays the same but it's history is always
+retargeted to the first one and hence the delta is big each time.</p>
+
+<h2>svn special properties (not reported yet)</h2>
+<p>There are <a href="http://svnbook.red-bean.com/en/1.5/svn.ref.properties.html">some properties</a>
+used by svn itself. svn client has checks for these to be proper, but checks are not complete.</p>
+<p>
+Example:
+<div class="highlight"><pre><code class="bash"><span class="nv">$ </span>svnadmin create repo
+<span class="nv">$ </span>ln -s <span class="sb">`</span>which <span class="nb">true</span><span class="sb">`</span> repo/hooks/pre-revprop-change
+<span class="nv">$ </span>svn co file://<span class="sb">`</span><span class="nb">pwd</span><span class="sb">`</span>/repo wd <span class="o">&amp;&amp;</span> <span class="nb">cd </span>wd
+<span class="nv">$ </span>touch 1 <span class="o">&amp;&amp;</span> svn add 1 <span class="o">&amp;&amp;</span> svn ci -m <span class="s2">&quot;Add 1&quot;</span>
+<span class="nv">$ </span>svn propset --revprop -r1 svn:eol-style LF
+property <span class="s1">&#39;svn:eol-style&#39;</span> <span class="nb">set </span>on repository revision 1
+<span class="nv">$ </span>svn propset svn:date tomorrow ./1
+svn: Revision property <span class="s1">&#39;svn:date&#39;</span> not allowed in this context
+</code></pre>
+</div>
+</p>
+
+
+   <hr/>
+   <ul>
+      <li><a href="/gsoc11/index.html">Home</a></li>
+      <li><a href="/gsoc11/braindump.html">Braindump</a></li>
+      <li><a href="/gsoc11/bugzoo.html">Bug Zoo</a></li>
+      <li><a href="/gsoc11/streams.html">Streams</a></li>
+      <li><a href="/gsoc11/proposal.html">Initial proposal</a></li>
+      <li><a href="/gsoc11/references.html">References</a></li>
+      <li><a href="/gsoc11/forest.html">Forest</a></li>
+   </ul>
+   <p><a href="https://github.com/divanorama/gsoc11/blob/gh-pages/bugzoo.html">This page on github</a></p>
+</body>
+</html>

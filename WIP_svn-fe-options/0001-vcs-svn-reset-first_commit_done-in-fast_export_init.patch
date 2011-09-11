@@ -1,0 +1,32 @@
+From c5bcbcdcfa1e2a1977497cb3a342c0365c8d78d6 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Thu, 23 Jun 2011 17:33:58 +0600
+Subject: [PATCH 01/11] vcs-svn: reset first_commit_done in fast_export_init
+
+first_commit_done has zero as a default value, but it
+is not reset back to zero in fast_export_init.
+
+Reset it back to zero so that each export will have
+proper initial state.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+---
+ vcs-svn/fast_export.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/vcs-svn/fast_export.c b/vcs-svn/fast_export.c
+index 3efde20..19d7c34 100644
+--- a/vcs-svn/fast_export.c
++++ b/vcs-svn/fast_export.c
+@@ -31,6 +31,7 @@ static int init_postimage(void)
+ 
+ void fast_export_init(int fd)
+ {
++	first_commit_done = 0;
+ 	if (buffer_fdinit(&report_buffer, fd))
+ 		die_errno("cannot read from file descriptor %d", fd);
+ }
+-- 
+1.7.3.4
+

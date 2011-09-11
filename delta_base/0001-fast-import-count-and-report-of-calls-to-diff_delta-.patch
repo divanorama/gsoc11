@@ -1,0 +1,69 @@
+From 94c3b48247b25773d9c0d7de892cb75cb06708bb Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Sun, 21 Aug 2011 01:04:11 +0600
+Subject: [PATCH 1/2] fast-import: count and report # of calls to diff_delta in stats
+
+It's an interesting number, how often do we try to deltify each type of
+objects and how often do we succeed. So do add it to stats.
+
+Success doesn't mean much gain in pack size though. As we allow delta to
+be as big as (data.len - 20). And delta close to data.len gains nothing
+compared to no delta at all even after zlib compression (delta is pretty
+much the same as data, just with few modifications).
+
+We should try to make less attempts that result in huge deltas as these
+consume more cpu than trivial small deltas. Either by choosing a better
+delta base or reducing delta size upper bound or doing less delta attempts
+at all.
+
+Currently, delta base for blobs is a waste literally. Each blob delta
+base is chosen as a previously stored blob. Disabling deltas for blobs
+doesn't increase pack size and reduce import time, or at least doesn't
+increase time for all fast-import streams I've tried.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Acked-by: David Barr <davidbarr@google.com>
+Acked-by: Jonathan Nieder <jrnieder@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ fast-import.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/fast-import.c b/fast-import.c
+index 78d9786..c6c8cc3 100644
+--- a/fast-import.c
++++ b/fast-import.c
+@@ -284,6 +284,7 @@ static uintmax_t marks_set_count;
+ static uintmax_t object_count_by_type[1 << TYPE_BITS];
+ static uintmax_t duplicate_count_by_type[1 << TYPE_BITS];
+ static uintmax_t delta_count_by_type[1 << TYPE_BITS];
++static uintmax_t delta_count_attempts_by_type[1 << TYPE_BITS];
+ static unsigned long object_count;
+ static unsigned long branch_count;
+ static unsigned long branch_load_count;
+@@ -1043,6 +1044,7 @@ static int store_object(
+ 	}
+ 
+ 	if (last && last->data.buf && last->depth < max_depth && dat->len > 20) {
++		delta_count_attempts_by_type[type]++;
+ 		delta = diff_delta(last->data.buf, last->data.len,
+ 			dat->buf, dat->len,
+ 			&deltalen, dat->len - 20);
+@@ -3328,10 +3330,10 @@ int main(int argc, const char **argv)
+ 		fprintf(stderr, "---------------------------------------------------------------------\n");
+ 		fprintf(stderr, "Alloc'd objects: %10" PRIuMAX "\n", alloc_count);
+ 		fprintf(stderr, "Total objects:   %10" PRIuMAX " (%10" PRIuMAX " duplicates                  )\n", total_count, duplicate_count);
+-		fprintf(stderr, "      blobs  :   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas)\n", object_count_by_type[OBJ_BLOB], duplicate_count_by_type[OBJ_BLOB], delta_count_by_type[OBJ_BLOB]);
+-		fprintf(stderr, "      trees  :   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas)\n", object_count_by_type[OBJ_TREE], duplicate_count_by_type[OBJ_TREE], delta_count_by_type[OBJ_TREE]);
+-		fprintf(stderr, "      commits:   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas)\n", object_count_by_type[OBJ_COMMIT], duplicate_count_by_type[OBJ_COMMIT], delta_count_by_type[OBJ_COMMIT]);
+-		fprintf(stderr, "      tags   :   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas)\n", object_count_by_type[OBJ_TAG], duplicate_count_by_type[OBJ_TAG], delta_count_by_type[OBJ_TAG]);
++		fprintf(stderr, "      blobs  :   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas of %10" PRIuMAX" attempts)\n", object_count_by_type[OBJ_BLOB], duplicate_count_by_type[OBJ_BLOB], delta_count_by_type[OBJ_BLOB], delta_count_attempts_by_type[OBJ_BLOB]);
++		fprintf(stderr, "      trees  :   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas of %10" PRIuMAX" attempts)\n", object_count_by_type[OBJ_TREE], duplicate_count_by_type[OBJ_TREE], delta_count_by_type[OBJ_TREE], delta_count_attempts_by_type[OBJ_TREE]);
++		fprintf(stderr, "      commits:   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas of %10" PRIuMAX" attempts)\n", object_count_by_type[OBJ_COMMIT], duplicate_count_by_type[OBJ_COMMIT], delta_count_by_type[OBJ_COMMIT], delta_count_attempts_by_type[OBJ_COMMIT]);
++		fprintf(stderr, "      tags   :   %10" PRIuMAX " (%10" PRIuMAX " duplicates %10" PRIuMAX " deltas of %10" PRIuMAX" attempts)\n", object_count_by_type[OBJ_TAG], duplicate_count_by_type[OBJ_TAG], delta_count_by_type[OBJ_TAG], delta_count_attempts_by_type[OBJ_TAG]);
+ 		fprintf(stderr, "Total branches:  %10lu (%10lu loads     )\n", branch_count, branch_load_count);
+ 		fprintf(stderr, "      marks:     %10" PRIuMAX " (%10" PRIuMAX " unique    )\n", (((uintmax_t)1) << marks->shift) * 1024, marks_set_count);
+ 		fprintf(stderr, "      atoms:     %10u\n", atom_cnt);
+-- 
+1.7.3.4
+

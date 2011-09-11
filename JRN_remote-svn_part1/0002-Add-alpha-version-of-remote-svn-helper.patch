@@ -1,0 +1,94 @@
+From 7350cecd2bd0897f5ac8503ad0db58865dbe8c39 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Tue, 21 Jun 2011 20:52:35 +0600
+Subject: [PATCH 2/4] Add alpha version of remote-svn helper
+
+This remote helper is only able to "import" whole '/' history from svn.
+It requires following programs in $PATH:
+- svnrdump from Subversion 1.7 or git://github.com/artagnon/svnrdump.git
+- svn-fe from svn-fe branch of git://repo.or.cz/git/jrn.git
+- git from the same branch or later
+and also it fires up "/bin/env bash" to make sure -o pipefail works.
+
+It is not incremental (fetches whole history every time), and can only
+write refs to refs/heads/master. svn:// and file:// urls are supported.
+
+exec 1>&- is crucial in termination process. git-fast-import waits for
+feof(stdin), helper waits for feof(stdin), transport-helper.c waits for
+them both to terminate.
+
+Helper relies on following property: import lines come in batches and are
+terminated by a blank line, followed by responses to "ls" and "cat-blob"
+queries if any are made by the helper in the import process.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+---
+ contrib/svn-fe/git-remote-svn-alpha |   55 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 55 insertions(+), 0 deletions(-)
+ create mode 100755 contrib/svn-fe/git-remote-svn-alpha
+
+diff --git a/contrib/svn-fe/git-remote-svn-alpha b/contrib/svn-fe/git-remote-svn-alpha
+new file mode 100755
+index 0000000..bc6a351
+--- /dev/null
++++ b/contrib/svn-fe/git-remote-svn-alpha
+@@ -0,0 +1,55 @@
++#!/bin/env bash
++set -o pipefail
++set -e
++
++die () {
++       printf >&2 'fatal: %s\n' "$*"
++       exit 128
++}
++
++usage () {
++       printf >&2 'usage: %s\n' "$*"
++       exit 129
++}
++
++do_import () {
++       revs=$1 url=$2
++       (svnrdump dump --non-interactive --username=Guest --password= \
++               -r"$revs" "$url" | svn-fe) 3<&0 || die "FAILURE"
++       exec 1>&-
++}
++
++test "${2+set}" ||
++usage 'git remote-svn-alpha <repository> <URL> < commandlist'
++repo=$1
++url=$2
++need_import=""
++
++while read -r cmd args
++do
++       case $cmd in
++       capabilities)
++               echo import
++               echo "refspec HEAD:refs/heads/master"
++               echo "refspec refs/heads/master:refs/heads/master"
++               echo
++               ;;
++       list)
++               echo '? HEAD'
++               echo '? refs/heads/master'
++               echo
++               ;;
++       import)
++               test "$args" = "HEAD" || test "$args" = "refs/heads/master" ||
++               die "remote-svn-alpha: unsupported import ref argument: $args"
++               need_import="yes"
++               ;;
++       '')
++               test "$need_import" = "yes" || exit 0
++               do_import 0:HEAD "$url"
++               need_import=""
++               ;;
++       *)
++               die "remote-svn-alpha: unsupported command: $cmd $args"
++       esac
++done
+-- 
+1.7.3.4
+

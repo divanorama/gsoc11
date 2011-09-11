@@ -1,0 +1,55 @@
+From 1f275b7c4caebf8ca5c002458f0f1b7994548a97 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Thu, 11 Aug 2011 15:15:37 +0600
+Subject: [PATCH 1/2] parse-options: export opterr, optbug
+
+opterror and optbug functions are used by some of parsing routines
+in parse-options.c to report errors and bugs respectively.
+
+Export these functions to allow more custom parsing routines to use
+them in a uniform way.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Junio C Hamano <gitster@pobox.com>
+---
+ parse-options.c |    4 ++--
+ parse-options.h |    2 ++
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/parse-options.c b/parse-options.c
+index 879ea82..7b061af 100644
+--- a/parse-options.c
++++ b/parse-options.c
+@@ -12,14 +12,14 @@ static int parse_options_usage(struct parse_opt_ctx_t *ctx,
+ #define OPT_SHORT 1
+ #define OPT_UNSET 2
+ 
+-static int optbug(const struct option *opt, const char *reason)
++int optbug(const struct option *opt, const char *reason)
+ {
+ 	if (opt->long_name)
+ 		return error("BUG: option '%s' %s", opt->long_name, reason);
+ 	return error("BUG: switch '%c' %s", opt->short_name, reason);
+ }
+ 
+-static int opterror(const struct option *opt, const char *reason, int flags)
++int opterror(const struct option *opt, const char *reason, int flags)
+ {
+ 	if (flags & OPT_SHORT)
+ 		return error("switch `%c' %s", opt->short_name, reason);
+diff --git a/parse-options.h b/parse-options.h
+index 05eb09b..59e0b52 100644
+--- a/parse-options.h
++++ b/parse-options.h
+@@ -165,6 +165,8 @@ extern NORETURN void usage_msg_opt(const char *msg,
+ 				   const char * const *usagestr,
+ 				   const struct option *options);
+ 
++extern int optbug(const struct option *opt, const char *reason);
++extern int opterror(const struct option *opt, const char *reason, int flags);
+ /*----- incremental advanced APIs -----*/
+ 
+ enum {
+-- 
+1.7.3.4
+

@@ -1,0 +1,69 @@
+From 107db3a4873741a7486ce686730ddcaa867fc00e Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Wed, 13 Jul 2011 13:33:28 +0600
+Subject: [PATCH 2/9] svn-fe: avoid error on no-op imports in remote-svn-alpha
+
+Currently helpers' exit codes are not checked by transport_helper.
+But a proper helper should check for all possible internal errors
+anyway. svnrdump dump --incremental considers -rX:HEAD range as bad
+if X is greater than the actual HEAD revision. And there is no option
+to change this behavior.
+
+One way to address this issue is to fire one more svn command to get
+the HEAD value, but it is one more connection, one more tool (ok,
+we can svnrdump HEAD but it looks slow) and possibly one more
+password prompt, and maybe even a race condition (if we talk to a
+svn servers farm frontend for example).
+
+Another one is to patch svnrdump to report the revision, because
+internally it asks svn for it anyway before doing a dump. Longer
+term it looks nice, moreover it can be used to display percentage
+progress.
+
+Add a wrapper around svnrdump that captures stderr and exit code.
+If stderr matches a hardcoded "LOWER cannot be greater than UPPER."
+and the exit code is non-zero, don't produce any dump and emulate
+exit 0, otherwise the wrapper is transparent. The only side effect
+is dup2-ing stdout to fd=6, ugly but fine as only standard
+descriptors are used currently.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+---
+ contrib/svn-fe/git-remote-svn-alpha |   19 +++++++++++++++++--
+ 1 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/contrib/svn-fe/git-remote-svn-alpha b/contrib/svn-fe/git-remote-svn-alpha
+index 61c9b07..2eac7d4 100755
+--- a/contrib/svn-fe/git-remote-svn-alpha
++++ b/contrib/svn-fe/git-remote-svn-alpha
+@@ -12,10 +12,25 @@ usage () {
+ 	exit 129
+ }
+ 
++svnrdump_wrap () {
++	exec 6<&1 &&
++
++	EX=$(
++		(svnrdump dump --non-interactive --username=Guest --password= \
++			--quiet "$1" "$2" >&6) 2>&1; test $? -ne 0 || echo Success
++	) &&
++	if test "z$EX" != "zSuccess"; then
++		if test "z$EX" = "zLOWER cannot be greater than UPPER."; then
++			return 0
++		fi
++		echo "$EX" >&2
++		return 1
++	fi
++}
++
+ do_import () {
+ 	revs=$1 url=$2
+-	(svnrdump dump --non-interactive --username=Guest --password= \
+-		-r"$revs" "$url" --quiet | svn-fe) 3<&0 || die "FAILURE"
++	(svnrdump_wrap "$url" -r"$revs" | svn-fe) 3<&0 || die "FAILURE"
+ 	exec 1>&-
+ }
+ 
+-- 
+1.7.3.4
+

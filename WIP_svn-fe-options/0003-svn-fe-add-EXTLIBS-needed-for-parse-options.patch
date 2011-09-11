@@ -1,0 +1,62 @@
+From 94db7b50149ad43eab1c2901f1c291a51d67fbf9 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Sat, 25 Jun 2011 16:00:14 +0600
+Subject: [PATCH 03/11] svn-fe: add EXTLIBS needed for parse-options
+
+Currently parse-options.o pull quite a big bunch of dependencies
+that are neither pulled in by svn-fe Makefile nor included in libgit.a.
+
+Use a temporary hack: put hardcoded EXTLIBS, this may not work in all
+setups because /Makefile logic is not repeated. The list of extlibs
+is likely to be exhaustive, but one may need to adjust it.
+
+-lcrypto is needed for SHA-1 routines unless NO_OPENSSL or BLK_SHA1
+is set, -lpcre is for grep if USE_LIBPCRE is set, and -lz is needed
+throughout.
+
+In the future, none of these should be needed, after a little
+rearranging to ensure that parse-options.o has no references to
+translation units that need to access the object db.
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+Signed-off-by: Jonathan Nieder <jrnieder@gmail.com>
+---
+ contrib/svn-fe/Makefile |   12 +++++-------
+ 1 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/contrib/svn-fe/Makefile b/contrib/svn-fe/Makefile
+index bc03a3e..8b12df1 100644
+--- a/contrib/svn-fe/Makefile
++++ b/contrib/svn-fe/Makefile
+@@ -8,11 +8,12 @@ CFLAGS = -g -O2 -Wall
+ LDFLAGS =
+ ALL_CFLAGS = $(CFLAGS)
+ ALL_LDFLAGS = $(LDFLAGS)
+-EXTLIBS =
++EXTLIBS = -lssl -lcrypto -lpcre -lz -lpthread
+ 
+ GIT_LIB = ../../libgit.a
+ VCSSVN_LIB = ../../vcs-svn/lib.a
+-LIBS = $(VCSSVN_LIB) $(GIT_LIB) $(EXTLIBS)
++XDIFF_LIB = ../../xdiff/lib.a
++LIBS = $(VCSSVN_LIB) $(GIT_LIB) $(XDIFF_LIB) $(EXTLIBS)
+ 
+ QUIET_SUBDIR0 = +$(MAKE) -C # space to separate -C and subdir
+ QUIET_SUBDIR1 =
+@@ -53,11 +54,8 @@ svn-fe.1: svn-fe.txt
+ 		../contrib/svn-fe/$@
+ 	$(MV) ../../Documentation/svn-fe.1 .
+ 
+-../../vcs-svn/lib.a: FORCE
+-	$(QUIET_SUBDIR0)../.. $(QUIET_SUBDIR1) vcs-svn/lib.a
+-
+-../../libgit.a: FORCE
+-	$(QUIET_SUBDIR0)../.. $(QUIET_SUBDIR1) libgit.a
++$(VCSSVN_LIB) $(GIT_LIB) $(XDIFF_LIB): ../../%.a: FORCE
++	$(QUIET_SUBDIR0)../.. $(QUIET_SUBDIR1) $*.a
+ 
+ clean:
+ 	$(RM) svn-fe$X svn-fe.o svn-fe.html svn-fe.xml svn-fe.1
+-- 
+1.7.3.4
+

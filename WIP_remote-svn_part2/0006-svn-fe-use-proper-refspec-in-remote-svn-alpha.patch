@@ -1,0 +1,94 @@
+From 38c689309ed750e1f864a0421b8f22bc08784de2 Mon Sep 17 00:00:00 2001
+From: Dmitry Ivankov <divanorama@gmail.com>
+Date: Mon, 4 Jul 2011 20:21:16 +0600
+Subject: [PATCH 6/9] svn-fe: use proper refspec in remote-svn-alpha
+
+Create a per repository name private refs namespace as suggested by
+the remote helpers documentation. This allows to have several svn
+remotes at the same time. And also this way we don't overwrite the
+local branch master.
+
+The refpec is:
+HEAD:refs/svn-alpha/$reponame/SVNHEAD
+refs/heads/master:refs/svn-alpha/$reponame/SVNHEAD
+
+Signed-off-by: Dmitry Ivankov <divanorama@gmail.com>
+---
+ contrib/svn-fe/git-remote-svn-alpha        |   18 ++++++++++--------
+ contrib/svn-fe/t/t9010-remote-svn-alpha.sh |    9 +++++++++
+ 2 files changed, 19 insertions(+), 8 deletions(-)
+
+diff --git a/contrib/svn-fe/git-remote-svn-alpha b/contrib/svn-fe/git-remote-svn-alpha
+index ed8da7b..b410302 100755
+--- a/contrib/svn-fe/git-remote-svn-alpha
++++ b/contrib/svn-fe/git-remote-svn-alpha
+@@ -58,8 +58,8 @@ SVNDUMP=${SVNDUMP:-`try_svnadmin`}
+ test -n "$SVNDUMP" || die "neither svnrdump nor svnadmin & svnlook was found"
+ 
+ do_import () {
+-	revs=$1 url=$2
+-	(eval "$SVNDUMP \"$url\" -r\"$revs\"" |	svn-fe --no-progress) 3<&0 || die "FAILURE"
++	revs=$1 url=$2 dst=$3
++	(eval "$SVNDUMP \"$url\" -r\"$revs\"" |	svn-fe --ref="$dst" --no-progress) 3<&0 || die "FAILURE"
+ 	exec 1>&-
+ }
+ 
+@@ -68,29 +68,31 @@ usage 'git remote-svn-alpha <repository> <URL> < commandlist'
+ repo=$1
+ url=$2
+ need_import=""
++remote_ref="refs/heads/master"
++private_ref="refs/svn-alpha/$repo/SVNHEAD"
+ 
+ while read -r cmd args
+ do
+ 	case $cmd in
+ 	capabilities)
+ 		echo import
+-		echo "refspec HEAD:refs/heads/master"
+-		echo "refspec refs/heads/master:refs/heads/master"
++		echo "refspec HEAD:$private_ref"
++		echo "refspec $remote_ref:$private_ref"
+ 		echo
+ 		;;
+ 	list)
+-		echo '? HEAD'
+-		echo '? refs/heads/master'
++		echo "? HEAD"
++		echo "? $remote_ref"
+ 		echo
+ 		;;
+ 	import)
+-		test "$args" = "HEAD" || test "$args" = "refs/heads/master" ||
++		test "$args" = "HEAD" || test "$args" = "$remote_ref" ||
+ 		die "remote-svn-alpha: unsupported import ref argument: $args"
+ 		need_import="yes"
+ 		;;
+ 	'')
+ 		test "$need_import" = "yes" || exit 0
+-		do_import 0:HEAD "$url"
++		do_import 0:HEAD "$url" "$private_ref"
+ 		need_import=""
+ 		;;
+ 	*)
+diff --git a/contrib/svn-fe/t/t9010-remote-svn-alpha.sh b/contrib/svn-fe/t/t9010-remote-svn-alpha.sh
+index 92bc4b2..b0f41cb 100755
+--- a/contrib/svn-fe/t/t9010-remote-svn-alpha.sh
++++ b/contrib/svn-fe/t/t9010-remote-svn-alpha.sh
+@@ -256,4 +256,13 @@ test_expect_success SMALL_SVN 'fetch updates from SMALL' '
+ 	test_nr_revs 10 .git refs/remotes/svn/master
+ '
+ 
++test_expect_success TINY_SVN 'fetch TINY does not write to refs/heads/master' '
++	reinit_git &&
++	url=$(svnurl tiny.svn) &&
++	git remote add svn "$url" &&
++	git fetch svn &&
++	git show-ref --verify refs/remotes/svn/master &&
++	test_must_fail git show-ref --verify refs/heads/master
++'
++
+ test_done
+-- 
+1.7.3.4
+

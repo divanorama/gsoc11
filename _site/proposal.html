@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <link rel="stylesheet" href="/gsoc11/css/syntax.css" type="text/css" />
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>GSoC'11 GSoC project proposal</title>
+</head>
+<body>
+   <h1> GSoC project proposal </h1>
+
+   <h3>Short description:</h3>
+<p>Complete the work on git-remote-svn, (re)implement git-svn on top of it.</p>
+<h4>Major motivation is:</h4>
+<ul>
+<li>git-svn git repository is not cloned easily, with git-remote-svn it could be much more straightforward.</li>
+<li>git-svn fetch is slow on huge repositories, especially when there are many branches.</li>
+</ul>
+
+<h3>Project goals:</h3>
+<ul>
+<li>Complete git-remote-svn and get it merged.</li>
+<li>Implement the foundation for new git-svn (git-svn-ng) and get it merged too.</li>
+</ul>
+
+<h3>Milestones for functionality:</h3>
+<ul>
+<li>
+Be able to track whole / as the only remote branch.
+Use svnrdump stream for a fast fetch.
+Commits will include actual diffs, and some of the metadata 
+like svn:author, svn:date translated to git counterparts 
+(what should be translated and what not needs some thinking, maybe it'll even be configurable).
+Commit history is linear with mutable (by svn upstream, maybe svn:log) and 
+svn specific data (rev mapping, revprops) stored separately in git-notes. 
+This should be made easy to git clone and proceed with tracking in two git repos, 
+and of course not only clone but fetch furter svn updates from a git peer.
+</li>
+<li>
+Be able to commit fastforward linear changes to svn, via svnrdump for better speed.
+And be able to dcommit (rebase-push) changes.
+At this point it is already possible to try out git-svn-ng for normal work.
+</li>
+<li>
+Be able to track /svnroot/proj path in svn repo in just the same manner as in previous step.
+Hopefully svn layer understands paths already making this a quick step.
+</li>
+<li>
+Be able to track paths within svnroot as branches.
+The main difference from svnroot branch is how do we choose parents 
+(this time whole history could be a tree, not only linear). 
+svn cp on path is creating a branch / setting a parent. 
+Set of branches to track is either a fixed list of fixed paths, 
+or a list of floating path@rev (like trunk@1). 
+In the latter case each time a path in 'svn cp'-ed 
+we add destination@rev as one more floating path, if it is within svnroot of course.
+</li>
+</ul>
+
+<h3>Future development, not included in the minimalistic plan:</h3>
+<ul>
+<li>
+Find a way to push and fetch merges to svn. 
+svn:mergeinfo could be a good place to store merge parents.
+</li>
+<li>
+Allow path or even revision filters to discard part of svn history. 
+Like binaries directory, or a weird svn cp like /trunk -&gt; /trunk/some/path/.
+</li>
+<li>
+Investigate a possiblity to tweak the svn-git mapping and a push process 
+such that any (reasonable for svn users) git history can be pushed to svn 
+and then fetched back lossless, with the same sha1.
+</li>
+</ul>
+
+
+   <hr/>
+   <ul>
+      <li><a href="/gsoc11/index.html">Home</a></li>
+      <li><a href="/gsoc11/braindump.html">Braindump</a></li>
+      <li><a href="/gsoc11/bugzoo.html">Bug Zoo</a></li>
+      <li><a href="/gsoc11/streams.html">Streams</a></li>
+      <li><a href="/gsoc11/proposal.html">Initial proposal</a></li>
+      <li><a href="/gsoc11/references.html">References</a></li>
+      <li><a href="/gsoc11/forest.html">Forest</a></li>
+   </ul>
+   <p><a href="https://github.com/divanorama/gsoc11/blob/gh-pages/proposal.html">This page on github</a></p>
+</body>
+</html>
